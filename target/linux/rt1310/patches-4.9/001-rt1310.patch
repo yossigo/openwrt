@@ -1,0 +1,312 @@
+--- /dev/null
++++ b/arch/arm/mach-rt1310/Kconfig
+@@ -0,0 +1,10 @@
++config ARCH_RT1310
++	bool "Ralink RT1310A/5VT1310"
++        select PCI
++        select VFP
++        select CPU_DCACHE_WRITETHROUGH
++        select ARM_THUMB
++        select CPU_CACHE_ROUND_ROBIN
++        select ARM_VIC
++        help
++          This enables support for RAlink RT1310A/5VT1310.
+--- a/arch/arm/Makefile
++++ b/arch/arm/Makefile
+@@ -91,6 +91,7 @@ tune-$(CONFIG_CPU_ARM920T)	=-mtune=arm9t
+ tune-$(CONFIG_CPU_ARM922T)	=-mtune=arm9tdmi
+ tune-$(CONFIG_CPU_ARM925T)	=-mtune=arm9tdmi
+ tune-$(CONFIG_CPU_ARM926T)	=-mtune=arm9tdmi
++tune-$(CONFIG_CPU_ARM926EJS)	=-mtune=arm926ej-s --param max-inline-insns-single=40000
+ tune-$(CONFIG_CPU_FA526)	=-mtune=arm9tdmi
+ tune-$(CONFIG_CPU_SA110)	=-mtune=strongarm110
+ tune-$(CONFIG_CPU_SA1100)	=-mtune=strongarm1100
+@@ -167,6 +168,7 @@ machine-$(CONFIG_ARCH_EFM32)		+= efm32
+ machine-$(CONFIG_ARCH_EP93XX)		+= ep93xx
+ machine-$(CONFIG_ARCH_EXYNOS)		+= exynos
+ machine-$(CONFIG_ARCH_FOOTBRIDGE)	+= footbridge
++machine-$(CONFIG_ARCH_RT1310)           += rt1310
+ machine-$(CONFIG_ARCH_GEMINI)		+= gemini
+ machine-$(CONFIG_ARCH_HIGHBANK)		+= highbank
+ machine-$(CONFIG_ARCH_HISI)		+= hisi
+--- a/arch/arm/mm/Kconfig
++++ b/arch/arm/mm/Kconfig
+@@ -143,6 +143,23 @@ config CPU_ARM926T
+ 	  Say Y if you want support for the ARM926T processor.
+ 	  Otherwise, say N.
+ 
++# ARM926EJS
++config CPU_ARM926EJS
++       bool
++       depends on ARCH_RT1310
++       default y if ARCH_RT1310
++       select CPU_32v5
++       select CPU_ABRT_EV5TJ
++       select CPU_CACHE_VIVT
++       select CPU_COPY_V4WB
++       select CPU_TLB_V4WBI
++       help
++         This is a variant of the ARM926. It has slightly different
++         instruction sequences for DSP and JAVA operations
++
++         To use this you need GCC version 4.0.0 or later
++         Otherwise, say N.
++
+ # FA526
+ config CPU_FA526
+ 	bool
+--- a/arch/arm/mm/Makefile
++++ b/arch/arm/mm/Makefile
+@@ -79,6 +79,7 @@ obj-$(CONFIG_CPU_ARM920T)	+= proc-arm920
+ obj-$(CONFIG_CPU_ARM922T)	+= proc-arm922.o
+ obj-$(CONFIG_CPU_ARM925T)	+= proc-arm925.o
+ obj-$(CONFIG_CPU_ARM926T)	+= proc-arm926.o
++obj-$(CONFIG_CPU_ARM926EJS)	+= proc-arm926.o
+ obj-$(CONFIG_CPU_ARM940T)	+= proc-arm940.o
+ obj-$(CONFIG_CPU_ARM946E)	+= proc-arm946.o
+ obj-$(CONFIG_CPU_FA526)		+= proc-fa526.o
+--- a/arch/arm/Kconfig.debug
++++ b/arch/arm/Kconfig.debug
+@@ -271,6 +271,14 @@ choice
+ 		  Say Y here if you want the debug print routines to direct
+ 		  their output to the 8250 at PCI COM1.
+ 
++	config DEBUG_RT1310
++        	bool "Kernel low-level debugging via RT1310 UART"
++                depends on ARCH_RT1310
++                select DEBUG_UART_8250
++                help
++                  Say Y here if you want kernel low-level debugging support
++                  on Ralink RT1310 platforms.
++
+ 	config DEBUG_GEMINI
+ 		bool "Kernel low-level debugging messages via Cortina Systems Gemini UART"
+ 		depends on ARCH_GEMINI
+@@ -1473,6 +1481,7 @@ config DEBUG_UART_PHYS
+ 	default 0x18010000 if DEBUG_SIRFATLAS7_UART0
+ 	default 0x18020000 if DEBUG_SIRFATLAS7_UART1
+ 	default 0x1c090000 if DEBUG_VEXPRESS_UART0_RS1
++        default 0x1e840000 if DEBUG_RT1310
+ 	default 0x20001000 if DEBUG_HIP01_UART
+ 	default 0x20060000 if DEBUG_RK29_UART0
+ 	default 0x20064000 if DEBUG_RK29_UART1 || DEBUG_RK3X_UART2
+@@ -1559,10 +1568,11 @@ config DEBUG_UART_PHYS
+ 		DEBUG_S3C64XX_UART || \
+ 		DEBUG_BCM63XX_UART || DEBUG_ASM9260_UART || \
+ 		DEBUG_SIRFSOC_UART || DEBUG_DIGICOLOR_UA0 || \
+-		DEBUG_AT91_UART
++		DEBUG_AT91_UART || DEBUG_RT1310
+ 
+ config DEBUG_UART_VIRT
+ 	hex "Virtual base address of debug UART"
++        default 0xff740000 if DEBUG_RT1310
+ 	default 0xe0000a00 if DEBUG_NETX_UART
+ 	default 0xe0010fe0 if ARCH_RPC
+ 	default 0xf0000be0 if ARCH_EBSA110
+@@ -1658,7 +1668,7 @@ config DEBUG_UART_VIRT
+ 		DEBUG_S3C64XX_UART || \
+ 		DEBUG_BCM63XX_UART || DEBUG_ASM9260_UART || \
+ 		DEBUG_SIRFSOC_UART || DEBUG_DIGICOLOR_UA0 || \
+-		DEBUG_AT91_UART
++		DEBUG_AT91_UART || DEBUG_RT1310
+ 
+ config DEBUG_UART_8250_SHIFT
+ 	int "Register offset shift for the 8250 debug UART"
+--- a/arch/arm/tools/mach-types
++++ b/arch/arm/tools/mach-types
+@@ -119,6 +119,7 @@ omap_osk		MACH_OMAP_OSK		OMAP_OSK		515
+ tosa			MACH_TOSA		TOSA			520
+ avila			MACH_AVILA		AVILA			526
+ edb9302			MACH_EDB9302		EDB9302			538
++rt1310			ARCH_RT1310		RT1310			539
+ husky			MACH_HUSKY		HUSKY			543
+ shepherd		MACH_SHEPHERD		SHEPHERD		545
+ h4700			MACH_H4700		H4700			562
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -742,6 +742,8 @@ source "arch/arm/mach-ep93xx/Kconfig"
+ 
+ source "arch/arm/mach-footbridge/Kconfig"
+ 
++source "arch/arm/mach-rt1310/Kconfig"
++
+ source "arch/arm/mach-gemini/Kconfig"
+ 
+ source "arch/arm/mach-highbank/Kconfig"
+--- /dev/null
++++ b/arch/arm/mach-rt1310/Makefile
+@@ -0,0 +1 @@
++obj-y 	:= rt1310_dt.o
+--- /dev/null
++++ b/arch/arm/boot/dts/rt1310a-goip1.dts
+@@ -0,0 +1,11 @@
++/dts-v1/;
++#include "rt1310a.dtsi"
++
++/ {
++    compatible = "ralink,rt1310a", "ralink,rt1310a-goip-1";
++    model = "DblTek GOIP-1";
++
++    chosen {
++        bootargs = "console=ttyS0,38400 earlyprintk lpj=50000";
++    };
++};
+--- /dev/null
++++ b/arch/arm/boot/dts/rt1310a.dtsi
+@@ -0,0 +1,88 @@
++#include <dt-bindings/interrupt-controller/irq.h>
++/ {
++        compatible = "ralink,rt1310a-soc";
++        #address-cells = <1>;
++        #size-cells = <1>;
++
++        aliases {
++            serial0 = &serial0;
++        };
++
++        cpus {
++                #address-cells = <1>;
++                #size-cells = <0>;
++
++                cpu@0 {
++                        device_type = "cpu";
++                        compatible = "ARM,926EJ-S";
++                        reg = <0x0>;
++                        d-cache-line-size = <32>;        // 32 bytes
++                        i-cache-line-size = <32>;        // 32 bytes
++                        d-cache-size = <0x4000>;        // L1, 16K
++                        i-cache-size = <0x4000>;        // L1, 16K
++                        timebase-frequency = <0>;
++                        bus-frequency = <0>;
++                        clock-frequency = <0>;
++                };
++        };
++
++        oscclk0: clk-osc0 {
++            compatible = "fixed-clock";
++            #clock-cells = <0>;
++            clock-frequency = <300000000>;
++        };
++
++        sysclk: clk-sys {
++                compatible = "fixed-factor-clock";
++                clocks = <&oscclk0>;
++                #clock-cells = <0>;
++                clock-div = <1>;
++                clock-mult = <1>;
++        };
++
++        memory {
++                device_type = "memory";
++                reg = <0x40000000 0x1000000>;                // 16M at 0x40000000
++        };
++
++        ahb@19c00000 {
++                #address-cells = <1>;
++                #size-cells = <1>;
++                ranges;
++
++                vic0: interrupt-controller@19c40000 {
++                        interrupt-controller;
++                        compatible = "arm,pl190-vic";
++                        #address-cells = <0>;
++                        #interrupt-cells = <1>;
++                        reg = <0x19c40000 0x20000>;
++                };
++        };
++
++        apb@1e800000 {
++                #address-cells = <1>;
++                #size-cells = <1>;
++                compatible = "simple-bus";
++                ranges;
++
++                timer: timer@1e800000 {
++                    compatible = "arm,sp804", "arm,primecell";
++                    reg = <0x1e800000 0x1000>;
++                    interrupts = <0 3 IRQ_TYPE_LEVEL_HIGH>;
++                    interrupt-parent = <&vic0>;
++                    clocks = <&sysclk>;
++                };
++
++                serial0: serial@1e840000 {
++                    compatible = "ns8250";
++                    reg = <0x1e840000 0x20000>;
++                    interrupts = <1>;
++                    reg-shift = <2>;
++                };
++        };
++
++        chosen {
++            stdin = "serial0";
++            stdout = "serial0";
++        };
++};
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -661,6 +661,8 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
+ 	rk3288-veyron-minnie.dtb \
+ 	rk3288-veyron-pinky.dtb \
+ 	rk3288-veyron-speedy.dtb
++dtb-$(CONFIG_ARCH_RT1310) += \
++        rt1310a-goip1.dtb
+ dtb-$(CONFIG_ARCH_S3C24XX) += \
+ 	s3c2416-smdk2416.dtb
+ dtb-$(CONFIG_ARCH_S3C64XX) += \
+--- /dev/null
++++ b/arch/arm/mach-rt1310/rt1310.h
+@@ -0,0 +1,8 @@
++#ifndef __RT1310_H
++#define __RT1310_H
++
++#define RT1310_REGS_PHYS_BASE   0x19c00000
++#define RT1310_REGS_VIRT_BASE   IOMEM(0xf1000000)
++#define RT1310_REGS_SIZE        0x5400000
++
++#endif  /* __RT1310_H */
+--- /dev/null
++++ b/arch/arm/mach-rt1310/rt1310_dt.c
+@@ -0,0 +1,43 @@
++#include <linux/init.h>
++#include <linux/io.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_platform.h>
++#include <asm/mach-types.h>
++#include <asm/mach/arch.h>
++#include <asm/mach/map.h>
++
++#include "rt1310.h"
++
++static struct map_desc rt1310_io_desc[] __initdata = {
++    {
++        .virtual    = (unsigned long) RT1310_REGS_VIRT_BASE,
++        .pfn        = __phys_to_pfn(RT1310_REGS_PHYS_BASE),
++        .length     = RT1310_REGS_SIZE,
++        .type       = MT_DEVICE,
++    },
++};
++
++void __init rt1310_map_io(void)
++{
++    iotable_init(rt1310_io_desc, ARRAY_SIZE(rt1310_io_desc));
++}
++
++static void __init rt1310_dt_init(void)
++{
++    of_platform_populate(NULL, of_default_bus_match_table,
++            NULL, NULL);
++}
++
++static const char * const rt1310_dt_compat[] = {
++    "ralink,rt1310a",
++    NULL,
++};
++
++
++DT_MACHINE_START(RT1310_DT, "Ralink RT1310 SoC (Device Tree)")
++    .init_machine       = rt1310_dt_init,
++    .map_io             = rt1310_map_io,
++    .dt_compat          = rt1310_dt_compat,
++MACHINE_END
